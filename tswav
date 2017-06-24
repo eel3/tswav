@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# -*- coding: utf-8 -*-
+# vim:fileencoding=UTF-8
+# @(#) Command line tool to transform a stereophonic sound (2 channels) WAVE file. Version 1.0.0.20170624
+
+# Copyright (c) 2017 eel3
+#
+# This software is provided 'as-is', without any express or implied
+# warranty. In no event will the authors be held liable for any damages
+# arising from the use of this software.
+#
+# Permission is granted to anyone to use this software for any purpose,
+# including commercial applications, and to alter it and redistribute it
+# freely, subject to the following restrictions:
+#
+#     1. The origin of this software must not be misrepresented; you must not
+#     claim that you wrote the original software. If you use this software
+#     in a product, an acknowledgment in the product documentation would be
+#     appreciated but is not required.
+#
+#     2. Altered source versions must be plainly marked as such, and must not be
+#     misrepresented as being the original software.
+#
+#     3. This notice may not be removed or altered from any source
+#     distribution.
+
+from __future__ import print_function
+
+import argparse
+import functools
+import struct
+import sys
+import wave
+
+
+def eprint(*args, **keywords):
+    print(sys.argv[0] + ':', *args, file=sys.stderr, **keywords)
+
+
+def make_frame_left(samples, _, __):
+    return samples[0] * 2
+
+
+def make_frame_mix(samples, sampwidth, fmt):
+    def unpack_sample(sample):
+        bytes = struct.unpack_from(fmt, sample[::-1])
+        return functools.reduce(lambda x, y: (x << 8) + y, bytes)
+
+    def pack_pcm(pcm):
+        bytes = []
+        for i in range(sampwidth):
+            bytes.append(pcm & 0xFF)
+            pcm >>= 8
+        return struct.pack(fmt, *bytes)
+
+    left_pcm = unpack_sample(samples[0])
+    right_pcm = unpack_sample(samples[1])
+    mixed_pcm = (left_pcm + right_pcm) / 2
+    sample = pack_pcm(mixed_pcm)
+
+    return sample * 2
+
+
+def make_frame_right(samples, _, __):
+    return samples[1] * 2
+
+
+def make_frame_swap(samples, _, __):
+    return samples[1] + samples[0]
+
+
+make_frame_table = {
+    'left':  make_frame_left,
+    'mix':   make_frame_mix,
+    'right': make_frame_right,
+    'swap':  make_frame_swap,
+}
+
+
+def tswav(wavfile, outfile, opts):
+    wr = wave.open(wavfile, 'rb')
+
+    nchannels = wr.getnchannels()
+    if nchannels != 2:
+        wr.close()
+        raise ValueError('require 2 channels WAVE file')
+    sampwidth = wr.getsampwidth()
+    framewidth = sampwidth * nchannels
+    nframes = wr.getnframes()
+
+    ww = wave.open(outfile, 'wb')
+
+    ww.setnchannels(nchannels)
+    ww.setsampwidth(sampwidth)
+    ww.setframerate(wr.getframerate())
+    ww.setnframes(nframes)
+    ww.setcomptype(wr.getcomptype(), wr.getcompname())
+
+    make_frame = make_frame_table[opts.transform]
+    fmt = '%dB' % sampwidth
+
+    frames = wr.readframes(nframes)
+    it = (frames[i:i+framewidth] for i in range(0, len(frames), framewidth))
+    for frame in it:
+        samples = [frame[i:i+sampwidth] for i in range(0, framewidth, sampwidth)]
+        ww.writeframesraw(make_frame(samples, sampwidth, fmt))
+
+    ww.close()
+    wr.close()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=
+            'Command line tool to transform a stereophonic sound (2 channels) WAVE file.')
+
+    parser.add_argument('files', metavar='file', nargs='+',
+                        help='RIFF WAVE file')
+    parser.add_argument('-o', '--output', metavar='file', nargs='?', const='',
+                        default='', required=True, help='place output in file')
+    parser.add_argument('-t', '--transform', nargs='?', const='mix',
+                        default='mix', choices=sorted(make_frame_table.keys()),
+                        help='transform type')
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s 1.0.0')
+
+    return parser.parse_known_args()
+
+
+def main():
+    args = parse_args()
+    retval = 0
+
+    for f in args[0].files:
+        try:
+            tswav(f, args[0].output, args[0])
+        except Exception as e:
+            eprint(e)
+            retval = 1
+
+    sys.exit(retval)
+
+if __name__ == '__main__':
+    main()
