@@ -2,7 +2,7 @@
 # encoding: utf-8
 # -*- coding: utf-8 -*-
 # vim:fileencoding=UTF-8
-# @(#) Command line tool to transform a stereophonic sound (2 channels) WAVE file. Version 1.1.0.20170630
+# @(#) Command line tool to transform a stereophonic sound (2 channels) WAVE file. Version 1.1.1.20170630
 
 # Copyright (c) 2017 eel3
 #
@@ -89,7 +89,11 @@ def tswav(wavfile, outfile, opts):
     framewidth = sampwidth * nchannels
     nframes = wr.getnframes()
 
-    ww = wave.open(outfile, 'wb')
+    try:
+        ww = wave.open(outfile, 'wb')
+    except:
+        wr.close()
+        raise
 
     ww.setnchannels(nchannels)
     ww.setsampwidth(sampwidth)
@@ -122,7 +126,7 @@ def parse_args():
                         default='mix', choices=sorted(make_frame_table.keys()),
                         help='transform type')
     parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s 1.1.0')
+                        version='%(prog)s 1.1.1')
 
     return parser.parse_known_args()
 
