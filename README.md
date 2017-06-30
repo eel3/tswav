@@ -30,18 +30,21 @@ Example
 -------
 
 ```sh
-# In the following cases, output.wav has 2 channels pcm data.
+# In the following cases, output*.wav has 2 channels pcm data.
 
 # stereo to mono (mix left/right channels: default behavior)
-tswav -o output.wav input.wav
-tswav -t mix -o output.wav input.wav
+tswav -o output.wav -- input.wav
+tswav -t mix -o output.wav -- input.wav
 
 # pick up left channel
-tswav -t left -o output.wav input.wav
+tswav -t left -o output.wav -- input.wav
 
 # pick up right channel
-tswav -t right -o output.wav input.wav
+tswav -t right -o output.wav -- input.wav
 
 # swap left/right channels
-tswav -t swap -o output.wav input.wav
+tswav -t swap -o output.wav -- input.wav
+
+# transform multiple files
+tswav -o output1.wav output2.wav -- input1.wav input2.wav
 ```
