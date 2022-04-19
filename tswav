@@ -25,6 +25,10 @@
 #     3. This notice may not be removed or altered from any source
 #     distribution.
 
+"""Command line tool to transform a stereophonic sound (2 channels)
+   WAVE file.
+"""
+
 import argparse
 import functools
 import struct
@@ -33,19 +37,61 @@ import wave
 
 
 def eprint(*args, **keywords):
+    """Wrapper function of print() (for error messages).
+
+    Args:
+        *args (tuple): Variable length argument list.
+        **keywords (dict[str, Any]): Arbitrary keyword arguments.
+    """
     print(sys.argv[0] + ':', *args, file=sys.stderr, **keywords)
 
 
 def make_frame_left(samples, _, __):
+    """Pick up only left-side PCM sample and make PCM frame.
+
+    Args:
+        samples (list[bytes]): PCM samples (left, right).
+        _ (int): Unused parameter.
+        __ (str): Unused parameter.
+
+    Returns:
+        bytes: PCM frame (left, left).
+    """
     return samples[0] * 2
 
 
 def make_frame_mix(samples, sampwidth, fmt):
+    """Mix left/right PCM sample and make PCM frame.
+
+    Args:
+        samples (list[bytes]): PCM samples (left, right).
+        sampwidth (int): 1 sample size in byte.
+        fmt (str): pack/unpack format string.
+
+    Returns:
+        bytes: PCM frame (mixed, mixed).
+    """
     def unpack_sample(sample):
+        """Unpack PCM sample to integer.
+
+        Args:
+            sample (bytes): PCM sample.
+
+        Returns:
+            int: Unpacked PCM sample.
+        """
         bytes = struct.unpack_from(fmt, sample[::-1])
         return functools.reduce(lambda x, y: (x << 8) + y, bytes)
 
     def pack_pcm(pcm):
+        """Pack integer to PCM sample.
+
+        Args:
+            pcm (int): Unpacked PCM sample.
+
+        Returns:
+            bytes: PCM sample.
+        """
         bytes = []
         for i in range(sampwidth):
             bytes.append(pcm & 0xFF)
@@ -61,10 +107,30 @@ def make_frame_mix(samples, sampwidth, fmt):
 
 
 def make_frame_right(samples, _, __):
+    """Pick up only right-side PCM sample and make PCM frame.
+
+    Args:
+        samples (list[bytes]): PCM samples (left, right).
+        _ (int): Unused parameter.
+        __ (str): Unused parameter.
+
+    Returns:
+        bytes: PCM frame (right, right).
+    """
     return samples[1] * 2
 
 
 def make_frame_swap(samples, _, __):
+    """Swap left/right PCM sample and make PCM frame.
+
+    Args:
+        samples (list[bytes]): PCM samples (left, right).
+        _ (int): Unused parameter.
+        __ (str): Unused parameter.
+
+    Returns:
+        bytes: PCM frame (right, left).
+    """
     return samples[1] + samples[0]
 
 
@@ -74,9 +140,18 @@ make_frame_table = {
     'right': make_frame_right,
     'swap':  make_frame_swap,
 }
+"""Selection list of PCM frame transform function.
+"""
 
 
 def tswav(wavfile, outfile, transform):
+    """Read RIFF WAVE file, transform PCM data, write to another file.
+
+    Args:
+        wavfile (str): Input file name.
+        outfile (str): Output file name.
+        transform (str): Transform type.
+    """
     wr = wave.open(wavfile, 'rb')
 
     nchannels = wr.getnchannels()
@@ -113,6 +188,11 @@ def tswav(wavfile, outfile, transform):
 
 
 def parse_args():
+    """Parse CLI arguments.
+
+    Returns:
+        tuple[argparse.Namespace, list[str]]: Results of argument parsing.
+    """
     parser = argparse.ArgumentParser(description=
             'Command line tool to transform a stereophonic sound (2 channels) WAVE file.')
 
@@ -130,6 +210,8 @@ def parse_args():
 
 
 def main():
+    """Main routine function.
+    """
     args = parse_args()
     retval = 0
 
