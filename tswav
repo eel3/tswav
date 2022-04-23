@@ -2,7 +2,7 @@
 # encoding: utf-8
 # -*- coding: utf-8-unix -*-
 # vim:fileencoding=utf-8:ff=unix
-# @(#) Command line tool to transform a stereophonic sound (2 channels) WAVE file. Version 2.0.0.20190308
+# @(#) Command line tool to transform a stereophonic sound (2 channels) WAVE file. Version 2.0.1.20220420
 
 # Copyright (c) 2017 eel3
 #
@@ -29,6 +29,8 @@
    WAVE file.
 """
 
+from __future__ import annotations
+
 import argparse
 import functools
 import os
@@ -36,10 +38,12 @@ import struct
 import sys
 import wave
 
-progname = os.path.basename(sys.argv[0])
+from typing import Any, Callable, Final, NoReturn
+
+progname: Final[str] = os.path.basename(sys.argv[0])
 
 
-def eprint(*args, **keywords):
+def eprint(*args: Any, **keywords: Any) -> None:
     """Wrapper function of print() (for error messages).
 
     Args:
@@ -49,7 +53,7 @@ def eprint(*args, **keywords):
     print(progname + ':', *args, file=sys.stderr, **keywords)
 
 
-def make_frame_left(samples, _, __):
+def make_frame_left(samples: list[bytes], _: int, __: str) -> bytes:
     """Pick up only left-side PCM sample and make PCM frame.
 
     Args:
@@ -63,7 +67,7 @@ def make_frame_left(samples, _, __):
     return samples[0] * 2
 
 
-def make_frame_mix(samples, sampwidth, fmt):
+def make_frame_mix(samples: list[bytes], sampwidth: int, fmt: str) -> bytes:
     """Mix left/right PCM sample and make PCM frame.
 
     Args:
@@ -74,7 +78,7 @@ def make_frame_mix(samples, sampwidth, fmt):
     Returns:
         bytes: PCM frame (mixed, mixed).
     """
-    def unpack_sample(sample):
+    def unpack_sample(sample: bytes) -> int:
         """Unpack PCM sample to integer.
 
         Args:
@@ -86,7 +90,7 @@ def make_frame_mix(samples, sampwidth, fmt):
         bytes = struct.unpack_from(fmt, sample[::-1])
         return functools.reduce(lambda x, y: (x << 8) + y, bytes)
 
-    def pack_pcm(pcm):
+    def pack_pcm(pcm: int) -> bytes:
         """Pack integer to PCM sample.
 
         Args:
@@ -109,7 +113,7 @@ def make_frame_mix(samples, sampwidth, fmt):
     return sample * 2
 
 
-def make_frame_right(samples, _, __):
+def make_frame_right(samples: list[bytes], _: int, __: str) -> bytes:
     """Pick up only right-side PCM sample and make PCM frame.
 
     Args:
@@ -123,7 +127,7 @@ def make_frame_right(samples, _, __):
     return samples[1] * 2
 
 
-def make_frame_swap(samples, _, __):
+def make_frame_swap(samples: list[bytes], _: int, __: str) -> bytes:
     """Swap left/right PCM sample and make PCM frame.
 
     Args:
@@ -137,7 +141,7 @@ def make_frame_swap(samples, _, __):
     return samples[1] + samples[0]
 
 
-make_frame_table = {
+make_frame_table: dict[str, Callable[[list[bytes], int, str], bytes]] = {
     'left':  make_frame_left,
     'mix':   make_frame_mix,
     'right': make_frame_right,
@@ -147,7 +151,7 @@ make_frame_table = {
 """
 
 
-def tswav(wavfile, outfile, transform):
+def tswav(wavfile: str, outfile: str, transform: str) -> None:
     """Read RIFF WAVE file, transform PCM data, write to another file.
 
     Args:
@@ -190,7 +194,7 @@ def tswav(wavfile, outfile, transform):
     wr.close()
 
 
-def parse_args():
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
     """Parse CLI arguments.
 
     Returns:
@@ -207,12 +211,12 @@ def parse_args():
                         choices=sorted(make_frame_table.keys()),
                         help='transform type')
     parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s 2.0.0')
+                        version='%(prog)s 2.0.1')
 
     return parser.parse_known_args()
 
 
-def main():
+def main() -> NoReturn:
     """Main routine function.
     """
     args = parse_args()
